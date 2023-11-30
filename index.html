@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Interactive Contour Map</title>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        #time {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-family: sans-serif;
+            font-size: 12pt;
+        }
+
+        .legend_text {
+            font-family: sans-serif;
+            font-size: 5pt;
+        }
+
+        #slider-range,
+        #custom-brush-slider {
+            width: 80%;
+            margin: 15px auto;
+        }
+
+        #svg-container {
+            text-align: center;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <p>
+        <label for="amount">Density range:</label>
+        <input type="text" id="amount" readonly style="border:0; color:#f6931f; font-weight:bold;">
+    </p>
+
+    <div id="slider-range"></div>
+
+    <div id="svg-container">
+        <svg width="60vw" viewbox="0 0 1000 500"></svg>
+    </div>
+
+    <div id="time"></div>
+
+    <div id="custom-brush-slider"></div>
+
+    <script>
+        const dictFile = 'Data_CT.csv'; // abstracted data file
+        const minDensity = 0;
+        const maxDensity = 2000;
+        const path = d3.geoPath();
+
+        const colorScale = d3.scaleLinear()
+            .domain(d3.range(minDensity, maxDensity, parseInt(Math.abs(maxDensity - minDensity) / 6.5)))
+            .range(["#0d1a50", "#3e5eba", "#2b83ba", "#abdda4", "#ffffbf", "#fdae61", "#d7191c"])
+            .interpolate(d3.interpolateHcl);
+
+        function plotContour(fileName, minVal, maxVal, binCounts) {
+            d3.csv(fileName).then((data) => {
+                const m = 512;
+                const n = 512;
+                const valuesDensity = data.map(d => +d[0]);
+
+                const contours = d3.contours()
+                    .size([m, n])
+                    .thresholds(d3.range(minVal, maxVal, binCounts))
+                    (valuesDensity);
+
+                const svg = d3.select("svg");
+
+                svg.selectAll(".contours").remove();
+                svg.append("g").attr("class", "contours")
+                    .selectAll("path")
+                    .data(contours)
+                    .enter()
+                    .append("path")
+                    .attr("d", path)
+                    .attr("stroke", "black")
+                    .attr("stroke-width", ".1px")
+                    .attr("stroke-linejoin", "round")
+                    .attr("fill", d => colorScale(d.value));
+            });
+        }
+
+        function updateSliderText(minVal, maxVal) {
+            $("#amount").val(`${minVal} - ${maxVal}`);
+        }
+
+        $(document).ready(function () {
+            $("#slider-range").slider({
+                range: true,
+                min: 0,
+                max: 2500,
+                values: [100, 2000],
+                slide: function (event, ui) {
+                    updateSliderText(ui.values[0], ui.values[1]);
+                    plotContour(dictFile, ui.values[0], ui.values[1], 20);
+                }
+            });
+
+            $("#custom-brush-slider").slider({
+                range: true,
+                min: 0,
+                max: 2500,
+                values: [100, 1800],
+                slide: function (event, ui) {
+                    console.log(`Custom BrushX Slider: ${ui.values[0]} - ${ui.values[1]}`);
+                    plotContour(dictFile, ui.values[0], ui.values[1], 20);
+                }
+            });
+
+            updateSliderText(250, 1000);
+            plotContour(dictFile, 250, 1000, 20);
+        });
+    </script>
+</body>
+
+</html>
